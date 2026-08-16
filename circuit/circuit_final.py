@@ -671,6 +671,15 @@ def draw_component(
         border = (50, 50, 50)
         thickness = 2
 
+    # Soft card shadow + clean component card. Geometry remains unchanged.
+    cv2.rectangle(
+        board,
+        (x + 4, y + 5),
+        (x + 184, y + 95),
+        (228, 231, 236),
+        -1
+    )
+
     cv2.rectangle(
         board,
         (x, y),
@@ -686,6 +695,14 @@ def draw_component(
         border,
         thickness
     )
+
+    # Terminal labels make the two-wire system easier to understand.
+    terminals = get_terminals({"name": name, "x": x, "y": y})
+    for idx, (tx, ty) in enumerate(terminals):
+        cv2.circle(board, (int(tx), int(ty)), 9, (255, 255, 255), -1)
+        cv2.circle(board, (int(tx), int(ty)), 7, (0, 150, 220), 2)
+        cv2.putText(board, "T" + str(idx + 1), (int(tx) - 10, int(ty) - 12),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.25, (75, 85, 98), 1)
 
 
     # ========================================================
@@ -973,11 +990,88 @@ def draw_component(
         board,
         name,
         (x + 10, y + 82),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.35,
-        (20, 20, 20),
-        2
+        cv2.FONT_HERSHEY_PLAIN,
+        1.15,
+        (55, 55, 55),
+        1
     )
+
+
+# ============================================================
+# LIBRARY COMPONENT ICONS
+# Physical-component-inspired vector icons.
+# ============================================================
+
+def draw_library_icon(board, name, cx, cy, color):
+
+    cx = int(cx)
+    cy = int(cy)
+    lead = (105, 100, 94)
+
+    if name == "BATTERY":
+        cv2.line(board, (cx - 30, cy), (cx - 9, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 9, cy), (cx + 30, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx - 6, cy - 10), (cx - 6, cy + 10), color, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 6, cy - 15), (cx + 6, cy + 15), color, 2, cv2.LINE_AA)
+        return
+
+    if name in {"330 OHM", "1 kOHM", "2.2 kOHM",
+                "3.3 kOHM", "10 kOHM", "100 kOHM"}:
+        cv2.line(board, (cx - 30, cy), (cx - 19, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 19, cy), (cx + 30, cy), lead, 2, cv2.LINE_AA)
+        cv2.rectangle(board, (cx - 19, cy - 9), (cx + 19, cy + 9),
+                      (218, 181, 125), -1)
+        cv2.rectangle(board, (cx - 19, cy - 9), (cx + 19, cy + 9),
+                      (170, 140, 95), 1)
+        for xoff, band_color in [
+            (-11, (45, 45, 45)),
+            (-3, (180, 55, 40)),
+            (5, (225, 175, 35)),
+            (13, (55, 55, 55))
+        ]:
+            cv2.rectangle(board,
+                          (cx + xoff, cy - 9),
+                          (cx + xoff + 3, cy + 9),
+                          band_color, -1)
+        return
+
+    if name == "LED":
+        cv2.line(board, (cx - 30, cy), (cx - 12, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 12, cy), (cx + 30, cy), lead, 2, cv2.LINE_AA)
+        cv2.circle(board, (cx, cy), 10, (245, 245, 235), -1)
+        cv2.circle(board, (cx, cy), 10, color, 2, cv2.LINE_AA)
+        cv2.line(board, (cx - 7, cy - 14), (cx - 13, cy - 21), color, 1, cv2.LINE_AA)
+        cv2.line(board, (cx + 7, cy - 14), (cx + 13, cy - 21), color, 1, cv2.LINE_AA)
+        return
+
+    if name == "CAPACITOR":
+        cv2.line(board, (cx - 30, cy), (cx - 8, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 8, cy), (cx + 30, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx - 7, cy - 14), (cx - 7, cy + 14), color, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 7, cy - 14), (cx + 7, cy + 14), color, 2, cv2.LINE_AA)
+        return
+
+    if name == "DIODE":
+        cv2.line(board, (cx - 30, cy), (cx - 13, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 9, cy), (cx + 30, cy), lead, 2, cv2.LINE_AA)
+        points = np.array([
+            [cx - 13, cy - 11],
+            [cx - 13, cy + 11],
+            [cx + 7, cy]
+        ], np.int32)
+        cv2.fillPoly(board, [points], color)
+        cv2.line(board, (cx + 9, cy - 14), (cx + 9, cy + 14),
+                 (75, 65, 65), 2, cv2.LINE_AA)
+        return
+
+    if name == "CURRENT SOURCE":
+        cv2.line(board, (cx - 30, cy), (cx - 14, cy), lead, 2, cv2.LINE_AA)
+        cv2.line(board, (cx + 14, cy), (cx + 30, cy), lead, 2, cv2.LINE_AA)
+        cv2.circle(board, (cx, cy), 12, (248, 248, 248), -1)
+        cv2.circle(board, (cx, cy), 12, color, 2, cv2.LINE_AA)
+        cv2.arrowedLine(board, (cx, cy + 7), (cx, cy - 7),
+                        color, 2, tipLength=0.30)
+        return
 
 
 # ============================================================
@@ -1094,91 +1188,46 @@ with HandLandmarker.create_from_options(options) as landmarker:
         # ====================================================
         # BOARD
         # ====================================================
+        board = np.ones((HEIGHT, WIDTH, 3), dtype=np.uint8) * 242
 
-        board = np.ones(
-            (HEIGHT, WIDTH, 3),
-            dtype=np.uint8
-        ) * 255
+        # Header
+        cv2.rectangle(board, (0, 0), (WIDTH, 92), (24, 28, 36), -1)
+        cv2.putText(board, "CIRCUIT LAB", (30, 38),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (245, 247, 250), 2)
+        cv2.putText(board, "AI GESTURE CIRCUIT BUILDER", (31, 67),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.43, (165, 174, 188), 1)
 
+        # Header status
+        cv2.rectangle(board, (660, 18), (805, 65), (39, 45, 55), -1)
+        cv2.rectangle(board, (660, 18), (805, 65), (92, 102, 118), 1)
+        cv2.putText(board, "●  LIVE", (681, 48),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.48, (110, 220, 145), 2)
 
-        # ====================================================
-        # TITLE
-        # ====================================================
+        # Undo button - same coordinates used by the existing gesture logic
+        cv2.rectangle(board, (UNDO_X1, UNDO_Y1), (UNDO_X2, UNDO_Y2), (48, 54, 64), -1)
+        cv2.rectangle(board, (UNDO_X1, UNDO_Y1), (UNDO_X2, UNDO_Y2), (110, 120, 135), 1)
+        cv2.putText(board, "UNDO", (UNDO_X1 + 28, UNDO_Y1 + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.48, (240, 243, 247), 2)
 
-        cv2.putText(
-            board,
-            "CIRCUIT VISION",
-            (30, 45),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (20, 20, 20),
-            2
-        )
+        # Main workspace
+        cv2.rectangle(board, (25, 112), (970, 615), (255, 255, 255), -1)
+        cv2.rectangle(board, (25, 112), (970, 615), (214, 219, 227), 2)
+        cv2.putText(board, "CIRCUIT CANVAS", (45, 145),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.43, (105, 113, 126), 1)
 
-        cv2.putText(
-            board,
-            "Gesture-Based Circuit Builder",
-            (30, 75),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            (100, 100, 100),
-            1
-        )
+        # Subtle placement grid. It is visual only; component coordinates/logic are unchanged.
+        for gx in range(50, 960, 40):
+            cv2.line(board, (gx, 160), (gx, 600), (239, 242, 246), 1)
+        for gy in range(175, 600, 40):
+            cv2.line(board, (35, gy), (960, gy), (239, 242, 246), 1)
 
-
-        # ====================================================
-        # WORKSPACE
-        # ====================================================
-
-        cv2.rectangle(
-            board,
-            (30, 110),
-            (985, 60),
-            (200, 200, 200),
-            2
-        )
-
-        cv2.putText(
-            board,
-            "CIRCUIT WORKSPACE",
-            (50, 145),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            (100, 100, 100),
-            1
-        )
-
-
-        # ====================================================
-        # SMALL COMPONENT PANEL
-        # ====================================================
-
-        cv2.rectangle(
-            board,
-            (990, 110),
-            (1180, 630),
-            (240, 240, 240),
-            -1
-        )
-
-        cv2.rectangle(
-            board,
-            (990, 110),
-            (1180, 630),
-            (150, 150, 150),
-            2
-        )
-
-        cv2.putText(
-            board,
-            "COMPONENTS",
-            (1000, 145),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            (20, 20, 20),
-            1
-        )
-
+        # Component library
+        cv2.rectangle(board, (985, 112), (1180, 615), (250, 251, 253), -1)
+        cv2.rectangle(board, (985, 112), (1180, 615), (214, 219, 227), 2)
+        cv2.putText(board, "COMPONENT LIBRARY", (1000, 142),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.39, (70, 77, 88), 1)
+        cv2.putText(board, "Hover to select", (1000, 160),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.30, (145, 151, 161), 1)
 
         # ====================================================
         # MEDIAPIPE
@@ -1791,101 +1840,62 @@ with HandLandmarker.create_from_options(options) as landmarker:
 
 
         # ====================================================
-        # BACK / UNDO BUTTON
+        # ====================================================
+        # POLISHED STATUS / MENU
         # ====================================================
 
-        cv2.rectangle(
-            board,
-            (UNDO_X1, UNDO_Y1),
-            (UNDO_X2, UNDO_Y2),
-            (235, 235, 235),
-            -1
-        )
+        # Circuit status pill
+        if circuit_complete:
+            status_label = "●  CIRCUIT COMPLETE"
+            status_color = (80, 190, 120)
+        else:
+            status_label = "●  INCOMPLETE"
+            status_color = (90, 130, 225)
 
-        cv2.rectangle(
-            board,
-            (UNDO_X1, UNDO_Y1),
-            (UNDO_X2, UNDO_Y2),
-            (80, 80, 80),
-            2
-        )
+        cv2.rectangle(board, (430, 18), (645, 65), (39, 45, 55), -1)
+        cv2.rectangle(board, (430, 18), (645, 65), status_color, 1)
+        cv2.putText(board, status_label, (446, 48),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.38, status_color, 2)
 
-        cv2.putText(
-            board,
-            "BACK / UNDO",
-            (UNDO_X1 + 15, UNDO_Y1 + 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            (20, 20, 20),
-            2
-        )
-
-
-        # ====================================================
-        # DRAW MENU
-        # ====================================================
-
+        # Menu cards: preserve the original menu coordinates so placement gestures
+        # remain exactly the same.
         for name, x1, y1, x2, y2 in menu:
-
-            if name == current_menu_component:
-
-                background = (
-                    255,
-                    245,
-                    190
-                )
-
-                border = (
-                    0,
-                    190,
-                    255
-                )
-
-                thickness = 4
-
+            selected_menu = (name == current_menu_component)
+            if selected_menu:
+                background = (225, 241, 255)
+                border = (65, 145, 230)
+                thickness = 3
             else:
+                background = (255, 255, 255)
+                border = (218, 222, 229)
+                thickness = 1
 
-                background = (
-                    255,
-                    255,
-                    255
-                )
+            cv2.rectangle(board, (x1, y1), (x2, y2), background, -1)
+            cv2.rectangle(board, (x1, y1), (x2, y2), border, thickness)
 
-                border = (
-                    60,
-                    60,
-                    60
-                )
+            # Real component-style icon + thin label.
+            icon_x = x2 - 34
+            icon_y = (y1 + y2) // 2
+            icon_color = (92, 82, 72) if not selected_menu else (45, 125, 205)
 
-                thickness = 2
-
-
-            cv2.rectangle(
+            draw_library_icon(
                 board,
-                (x1, y1),
-                (x2, y2),
-                background,
-                -1
-            )
-
-            cv2.rectangle(
-                board,
-                (x1, y1),
-                (x2, y2),
-                border,
-                thickness
+                name,
+                icon_x,
+                icon_y,
+                icon_color
             )
 
             cv2.putText(
                 board,
                 name,
-                (x1 + 8, y1 + 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.32,
-                (20, 20, 20),
-                2
+                (x1 + 14, y1 + 29),
+                cv2.FONT_HERSHEY_PLAIN,
+                1.15,
+                (55, 60, 68),
+                1,
+                cv2.LINE_AA
             )
-
 
         # ====================================================
         # DRAW WIRES
@@ -1937,194 +1947,64 @@ with HandLandmarker.create_from_options(options) as landmarker:
 
 
         # ====================================================
-        # CURSOR
+        # CURSOR + INTERACTION FEEDBACK
         # ====================================================
 
         if cursor_x is not None:
-
             if is_pinching:
-
-                cursor_color = (
-                    255,
-                    0,
-                    255
-                )
-
+                cursor_color = (205, 80, 210)
             elif wire_start is not None:
-
-                cursor_color = (
-                    0,
-                    180,
-                    0
-                )
-
+                cursor_color = (70, 185, 110)
             else:
+                cursor_color = (70, 125, 225)
 
-                cursor_color = (
-                    0,
-                    0,
-                    255
-                )
+            cv2.circle(board, (cursor_x, cursor_y), 18, cursor_color, 2)
+            cv2.circle(board, (cursor_x, cursor_y), 4, cursor_color, -1)
 
+        # Interaction card
+        card_x1, card_y1, card_x2, card_y2 = 35, 535, 950, 595
+        cv2.rectangle(board, (card_x1, card_y1), (card_x2, card_y2), (247, 249, 252), -1)
+        cv2.rectangle(board, (card_x1, card_y1), (card_x2, card_y2), (224, 228, 235), 1)
 
-            cv2.circle(
-                board,
-                (cursor_x, cursor_y),
-                14,
-                cursor_color,
-                3
-            )
-
-            cv2.circle(
-                board,
-                (cursor_x, cursor_y),
-                4,
-                cursor_color,
-                -1
-            )
-
-
-        # ====================================================
-        # STATUS
-        # ====================================================
-
-        if circuit_complete:
-
-            status_text = (
-                "CIRCUIT COMPLETE - LED ON"
-            )
-
-            status_color = (
-                0,
-                180,
-                0
-            )
-
-        else:
-
-            status_text = (
-                "CIRCUIT INCOMPLETE"
-            )
-
-            status_color = (
-                0,
-                0,
-                220
-            )
-
-
-        cv2.putText(
-            board,
-            status_text,
-            (600, 95),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            status_color,
-            2
-        )
-
-
-        # ====================================================
-        # STATUS MESSAGE
-        # ====================================================
-
-        if (
-            dragging
-            and
-            dragged_component is not None
-        ):
-
-            message = (
-                "MOVING "
-                +
-                dragged_component["name"]
-                +
-                " - release pinch"
-            )
-
+        if dragging and dragged_component is not None:
+            state_title = "MOVING"
+            state_text = "Release the pinch to place " + dragged_component["name"]
+            state_color = (225, 145, 65)
         elif wire_start is not None:
-
-            message = (
-                "WIRE START: "
-                +
-                wire_start["name"]
-                +
-                " T"
-                +
-                str(wire_start_terminal + 1)
-                +
-                " | pinch another terminal"
-            )
-
-        elif (
-            cursor_x is not None
-            and
-            cursor_y is not None
-            and
-            UNDO_X1 <= cursor_x <= UNDO_X2
-            and
-            UNDO_Y1 <= cursor_y <= UNDO_Y2
-        ):
-
-            message = "Pinch to undo last action"
-
+            state_title = "CONNECTING"
+            state_text = ("Index finger: move to another terminal — "
+                          + wire_start["name"] + " T" + str(wire_start_terminal + 1))
+            state_color = (55, 175, 105)
         elif current_menu_component is not None:
-
-            seconds = (
-                stable_frames /
-                30
-            )
-
-            message = (
-                "Holding "
-                +
-                current_menu_component
-                +
-                " : "
-                +
-                str(
-                    round(
-                        seconds,
-                        1
-                    )
-                )
-                +
-                " / 0.7 sec"
-            )
-
+            seconds = stable_frames / 30
+            state_title = "PLACING"
+            state_text = ("Hold " + current_menu_component + "  " +
+                          str(round(seconds, 1)) + " / 0.7 sec")
+            state_color = (70, 125, 225)
         else:
+            state_title = "READY"
+            state_text = "Use your existing gestures to place, move and connect components"
+            state_color = (105, 113, 126)
 
-            message = circuit_message
-
-
-        # ====================================================
-        # STATUS BAR
-        # ====================================================
-
-        cv2.rectangle(
-            board,
-            (30, 640),
-            (1180, 690),
-            (30, 30, 30),
-            -1
-        )
-
-        cv2.putText(
-            board,
-            message,
-            (50, 672),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            (255, 255, 255),
-            2
-        )
-
+        cv2.putText(board, state_title, (55, 558),
+                    cv2.FONT_HERSHEY_PLAIN, 1.25, state_color, 1)
+        cv2.putText(board, state_text, (155, 558),
+                    cv2.FONT_HERSHEY_PLAIN, 1.20, (58, 65, 76), 1)
 
         # ====================================================
-        # WINDOWS
-        # IMPORTANT:
-        # CAMERA IS SEPARATE LIKE YOUR ORIGINAL CODE
+        # FOOTER
         # ====================================================
+
+        cv2.rectangle(board, (0, 630), (WIDTH, 700), (24, 28, 36), -1)
+        cv2.putText(board, "STATUS", (28, 658),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.34, (145, 155, 170), 1)
+        cv2.putText(board, circuit_message, (100, 658),
+                    cv2.FONT_HERSHEY_PLAIN, 1.25, (242, 245, 248), 1)
+
+        footer_status = "COMPLETE" if circuit_complete else "BUILDING"
+        footer_color = (100, 215, 145) if circuit_complete else (225, 170, 80)
+        cv2.putText(board, footer_status, (1060, 658),
+                    cv2.FONT_HERSHEY_PLAIN, 1.25, footer_color, 1)
 
         cv2.imshow(
             "Circuit Vision - Circuit Board",
